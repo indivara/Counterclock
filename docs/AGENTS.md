@@ -13,7 +13,7 @@ Notes for anyone (human or AI) continuing work on Counterclock, a Monkey C / Con
 ## Architecture
 
 - `CounterclockApp.mc`: `AppBase`. Returns `CounterclockView` as the initial view and the settings picker from `getSettingsView()`.
-- `CounterclockView.mc`: everything visual, in `onUpdate`. Draw order is z-order: background layout, dial, date window, notification dot, battery dots, hour hand, minute hand, second hand.
+- `CounterclockView.mc`: everything visual, in `onUpdate`. Draw order is z-order: background layout, dial, date window, notification mark, battery dots, hour hand, minute hand, second hand.
 - `CounterclockBackground.mc`: a `Drawable` used by `resources/layouts/layout.xml`. It only clears the screen using `getBackgroundColor()`.
 - `CounterclockSettings.mc`: `getBackgroundColor()` (reads `Application.Storage`, default dark grey `#333333`), and the slider view and delegate for the one setting (grey level 0-50%, touch drag or up/down buttons, saved in `onHide`).
 

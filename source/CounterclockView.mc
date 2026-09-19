@@ -9,12 +9,12 @@ import Toybox.WatchUi;
 class CounterclockView extends WatchUi.WatchFace {
 
     private const SHADOW_OFFSET as Float = 1.5;
-    private const DATE_BOX_FILL_COLOR as Number = 0xFFC107;
+    private const DATE_BOX_FILL_COLOR as Number = 0xCDDC39;
     private const DATE_TEXT_COLOR as Number = 0x000000;
     private const HAND_COLOR as Number = 0xFFFFFF;
     private const DIAL_COLOR as Number = 0xAAAAAA;
     private const SECOND_HAND_COLOR as Number = 0xFF9800;
-    private const NOTIFICATION_COLOR as Number = 0xCDDC39;
+    private const NOTIFICATION_COLOR as Number = 0xFFC107;
     private const BATTERY_CRITICAL_PERCENT as Float = 10.0;
     private const BATTERY_LOW_PERCENT as Float = 20.0;
     private const BATTERY_WARNING_PERCENT as Float = 25.0;
@@ -75,7 +75,7 @@ class CounterclockView extends WatchUi.WatchFace {
 
         drawDial(dc, centerX, centerY, clockRadius, DIAL_COLOR);
         drawDateWindow(dc, centerX, centerY, clockRadius);
-        drawNotificationDot(dc, centerX, centerY, clockRadius);
+        drawNotificationMark(dc, centerX, centerY, clockRadius);
         drawBatteryIndicator(dc, centerX, centerY, clockRadius);
 
         var clockTime = System.getClockTime();
@@ -284,14 +284,17 @@ class CounterclockView extends WatchUi.WatchFace {
         dc.drawLine(left, bottom, right, bottom);
     }
 
-    // Draw a small dot above center when there's an unread notification --
-    // nothing at all otherwise. Deliberately just a dot rather than a
-    // count/text, to stay tiny and out of the way.
-    private function drawNotificationDot(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
+    // When there is an unread notification, draw over the five-minute mark
+    // at 12 in the notification color, a little thicker than the mark under
+    // it -- nothing at all otherwise. Deliberately just a recolored mark
+    // rather than a count, to stay tiny and out of the way. The hands never
+    // reach that far out, so they never cover it.
+    private function drawNotificationMark(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
         var notificationCount = System.getDeviceSettings().notificationCount;
         if (notificationCount > 0) {
             dc.setColor(NOTIFICATION_COLOR, Graphics.COLOR_TRANSPARENT);
-            dc.fillCircle(centerX, centerY - clockRadius * 0.40, 2.5);
+            dc.setPenWidth(3);
+            dc.drawLine(centerX, centerY - clockRadius * 0.925, centerX, centerY - clockRadius * 0.99);
         }
     }
 
