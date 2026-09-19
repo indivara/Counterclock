@@ -9,13 +9,33 @@ import Toybox.WatchUi;
 class CounterclockView extends WatchUi.WatchFace {
 
     private const SHADOW_OFFSET as Float = 1.5;
-    private const DATE_BOX_FILL_COLOR as Number = 0xB0B0B0;
-    private const DATE_BOX_HIGHLIGHT_COLOR as Number = 0xE0E0E0;
+    private const DATE_BOX_FILL_COLOR as Number = 0xFFC107;
     private const DATE_TEXT_COLOR as Number = 0x000000;
     private const HAND_COLOR as Number = 0xFFFFFF;
-    private const LOW_BATTERY_THRESHOLD as Float = 20.0;
+    private const DIAL_COLOR as Number = 0xAAAAAA;
+    private const SECOND_HAND_COLOR as Number = 0xFF9800;
+    private const NOTIFICATION_COLOR as Number = 0xCDDC39;
+    private const BATTERY_CRITICAL_PERCENT as Float = 10.0;
+    private const BATTERY_LOW_PERCENT as Float = 20.0;
+    private const BATTERY_WARNING_PERCENT as Float = 25.0;
+    private const BATTERY_FRAME_COLOR as Number = 0x666666;
+    private const BATTERY_DOT_COLOR as Number = 0xAAAAAA;
+    private const BATTERY_DOT_BACKGROUND_COLOR as Number = 0x111111;
+    private const BATTERY_WARNING_COLOR as Number = 0xFFEB3B;
+    private const BATTERY_LOW_COLOR as Number = 0xFF7A00;
+    private const BATTERY_CRITICAL_COLOR as Number = 0xFF0000;
+    private const BATTERY_DOT_COUNT as Number = 8;
+    private const BATTERY_DOT_RADIUS as Float = 1.6;
+    private const BATTERY_DOT_PITCH as Float = 6.0;
+    private const BATTERY_FRAME_PADDING as Float = 3.0;
+
+    // Every hour gets a numeral except this one, where the date window
+    // sits. Because the dial is mirrored, hour 3 is on the left.
+    private const DATE_HOUR as Number = 3;
 
     private var mIsSleeping as Boolean = false;
+    private var mNumeralFont as Graphics.FontType = Graphics.FONT_SMALL;
+    private var mDateFont as Graphics.FontType = Graphics.FONT_XTINY;
 
     function initialize() {
         WatchFace.initialize();
@@ -24,6 +44,10 @@ class CounterclockView extends WatchUi.WatchFace {
     // Load your resources here
     function onLayout(dc as Dc) as Void {
         setLayout(Rez.Layouts.WatchFace(dc));
+
+        // Josefin Sans bitmap fonts, digits only (see tools/make_bitmap_font.py).
+        mNumeralFont = WatchUi.loadResource(Rez.Fonts.NumeralFont) as Graphics.FontType;
+        mDateFont = WatchUi.loadResource(Rez.Fonts.DateFont) as Graphics.FontType;
     }
 
     // Called when this View is brought to the foreground. Restore
@@ -49,7 +73,7 @@ class CounterclockView extends WatchUi.WatchFace {
         var centerY = height / 2.0;
         var clockRadius = (width < height ? width : height) / 2.0 - 10.0;
 
-        drawNumbers(dc, centerX, centerY, clockRadius, handColor);
+        drawDial(dc, centerX, centerY, clockRadius, DIAL_COLOR);
         drawDateWindow(dc, centerX, centerY, clockRadius);
         drawNotificationDot(dc, centerX, centerY, clockRadius);
         drawBatteryIndicator(dc, centerX, centerY, clockRadius);
@@ -72,7 +96,7 @@ class CounterclockView extends WatchUi.WatchFace {
 
         if (!mIsSleeping) {
             var secondAngle = (seconds / 60.0) * 2 * Math.PI;
-            drawSecondHand(dc, centerX, centerY, secondAngle, clockRadius * 0.85, tailLength, 6, 2, Graphics.COLOR_RED, backgroundColor);
+            drawSecondHand(dc, centerX, centerY, secondAngle, clockRadius * 0.85, tailLength, 6, 2, SECOND_HAND_COLOR, backgroundColor);
         }
     }
 
@@ -210,39 +234,28 @@ class CounterclockView extends WatchUi.WatchFace {
         return (r << 16) | (g << 8) | b;
     }
 
-    // Draw the day of week and day of month, on one line, in a small inset
-    // frame where the "3" used to be on the left side of the face (see the
-    // matching skip in drawNumbers). Uses a fixed light grey / black
-    // palette rather than the user's face colors, so the frame reads
-    // clearly regardless of what BackgroundColor is set to.
+    // Draw the day of the month in a small inset frame on the left side of
+    // the face, at the date's hour position (see DATE_HOUR). Uses a fixed
+    // light grey / black palette rather than the face colors. The frame is
+    // sized for two digits so it doesn't change size from day to day.
     private function drawDateWindow(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
-        var info = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
-        var weekday = (info.day_of_week as String).toUpper();
-        var dayOfMonth = info.day.format("%02d");
-        var dateText = weekday + " " + dayOfMonth;
+        var dayOfMonth = Gregorian.info(Time.now(), Time.FORMAT_SHORT).day.toString();
 
-        var font = Graphics.FONT_XTINY;
-        var textDimensions = dc.getTextDimensions(dateText, font);
+        var widest = dc.getTextDimensions("00", mDateFont);
         var padding = 6.0;
-        var boxWidth = textDimensions[0] + padding * 2;
-        var boxHeight = textDimensions[1] + padding * 2;
+        var boxWidth = widest[0] + padding * 2;
+        var boxHeight = widest[1] + padding * 2;
 
-        // Anchor to the left edge the "3" used to have, rather than its
-        // center, so the wider date box doesn't creep closer to the
-        // perimeter than the digit it replaced.
-        var numberRadius = clockRadius * 0.80;
-        var threeWidth = dc.getTextDimensions("3", Graphics.FONT_SMALL)[0];
-        var left = (centerX - numberRadius) - threeWidth / 2.0;
+        // The outer edge sits well clear of the minute track and the
+        // perimeter; the box extends inward from it.
+        var left = centerX - clockRadius * 0.90;
         var boxCenterX = left + boxWidth / 2.0;
         var top = centerY - boxHeight / 2.0;
 
         drawInsetFrame(dc, left, top, boxWidth, boxHeight);
 
-        // The built-in fonts have no bolder weight, so draw the text twice,
-        // a pixel apart, to thicken the strokes.
         dc.setColor(DATE_TEXT_COLOR, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(boxCenterX - 0.5, centerY, font, dateText, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        dc.drawText(boxCenterX + 0.5, centerY, font, dateText, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(boxCenterX, centerY, mDateFont, dayOfMonth, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     // Draw a rectangular frame that looks pressed into the face: an inner
@@ -266,7 +279,7 @@ class CounterclockView extends WatchUi.WatchFace {
             dc.drawLine(left + i, top + i, left + i, bottom - i);
         }
 
-        dc.setColor(DATE_BOX_HIGHLIGHT_COLOR, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(lerpColor(DATE_BOX_FILL_COLOR, 0xFFFFFF, 0.5), Graphics.COLOR_TRANSPARENT);
         dc.drawLine(right, top, right, bottom);
         dc.drawLine(left, bottom, right, bottom);
     }
@@ -277,47 +290,72 @@ class CounterclockView extends WatchUi.WatchFace {
     private function drawNotificationDot(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
         var notificationCount = System.getDeviceSettings().notificationCount;
         if (notificationCount > 0) {
-            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(NOTIFICATION_COLOR, Graphics.COLOR_TRANSPARENT);
             dc.fillCircle(centerX, centerY - clockRadius * 0.40, 2.5);
         }
     }
 
-    // Draw a tiny battery level bar below center: a dim outline track plus
-    // a fill proportional to charge, so no text/percentage is needed. Turns
-    // red instead of the usual grey once charge drops below the threshold.
+    // Draw a tiny battery gauge below center: a row of dots, each an equal
+    // share of charge (rounded up), inside a frame with a small gap around
+    // them and a very dark fill showing between them. The dots are grey
+    // normally, yellow at BATTERY_WARNING_PERCENT or below, orange at
+    // BATTERY_LOW_PERCENT or below and red at BATTERY_CRITICAL_PERCENT or below.
     private function drawBatteryIndicator(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
         var batteryPercent = System.getSystemStats().battery;
 
-        var barWidth = clockRadius * 0.26;
-        var barHeight = 3.0;
-        var left = centerX - barWidth / 2.0;
-        var top = centerY + clockRadius * 0.40;
+        var dotsWidth = (BATTERY_DOT_COUNT - 1) * BATTERY_DOT_PITCH + 2 * BATTERY_DOT_RADIUS;
+        var frameWidth = dotsWidth + 2 * BATTERY_FRAME_PADDING;
+        var frameHeight = 2 * BATTERY_DOT_RADIUS + 2 * BATTERY_FRAME_PADDING;
+        var frameLeft = centerX - frameWidth / 2.0;
+        var frameTop = centerY + clockRadius * 0.40;
 
-        dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(BATTERY_DOT_BACKGROUND_COLOR, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(frameLeft, frameTop, frameWidth, frameHeight);
+        dc.setColor(BATTERY_FRAME_COLOR, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(1);
-        dc.drawRectangle(left, top, barWidth, barHeight);
+        dc.drawRectangle(frameLeft, frameTop, frameWidth, frameHeight);
 
-        var fillWidth = barWidth * (batteryPercent / 100.0);
-        var fillColor = (batteryPercent <= LOW_BATTERY_THRESHOLD) ? Graphics.COLOR_RED : 0xAAAAAA;
-        dc.setColor(fillColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(left, top, fillWidth, barHeight);
+        var dotColor = BATTERY_DOT_COLOR;
+        if (batteryPercent <= BATTERY_CRITICAL_PERCENT) {
+            dotColor = BATTERY_CRITICAL_COLOR;
+        } else if (batteryPercent <= BATTERY_LOW_PERCENT) {
+            dotColor = BATTERY_LOW_COLOR;
+        } else if (batteryPercent <= BATTERY_WARNING_PERCENT) {
+            dotColor = BATTERY_WARNING_COLOR;
+        }
+
+        var litDots = Math.ceil(batteryPercent / 100.0 * BATTERY_DOT_COUNT).toNumber();
+        dc.setColor(dotColor, Graphics.COLOR_TRANSPARENT);
+        for (var i = 0; i < litDots && i < BATTERY_DOT_COUNT; i += 1) {
+            dc.fillCircle(frameLeft + BATTERY_FRAME_PADDING + BATTERY_DOT_RADIUS + i * BATTERY_DOT_PITCH,
+                frameTop + frameHeight / 2.0, BATTERY_DOT_RADIUS);
+        }
     }
 
-    // Draw the hour numbers around the edge of the face, laid out
-    // counterclockwise (mirrored the same way as the hands) so each hand
-    // still points at the correct number as time passes. The 3 is skipped
-    // -- it falls on the left side of the face in this mirrored layout --
-    // since the date window takes its place (see drawDateWindow).
-    private function drawNumbers(dc as Dc, centerX as Float, centerY as Float, radius as Float, color as Number) as Void {
+    // Draw the dial: a minute track around the edge (the five-minute marks
+    // longer and thicker) and Josefin Sans numerals for every hour except
+    // DATE_HOUR. Everything is placed with the same mirrored transform as
+    // the hands (x = cx - r*sin(angle)), so the numerals run counterclockwise
+    // and each hand still points at the right one.
+    private function drawDial(dc as Dc, centerX as Float, centerY as Float, radius as Float, color as Number) as Void {
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        var font = Graphics.FONT_SMALL;
-        var numberRadius = radius * 0.80;
-        for (var i = 1; i <= 12; i++) {
-            if (i != 3) {
-                var angle = i * (Math.PI / 6.0);
-                var x = centerX - numberRadius * Math.sin(angle);
-                var y = centerY - numberRadius * Math.cos(angle);
-                dc.drawText(x, y, font, i.toString(), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        for (var m = 0; m < 60; m += 1) {
+            var angle = m * (Math.PI / 30.0);
+            var s = Math.sin(angle);
+            var c = Math.cos(angle);
+            var isHourMark = (m % 5 == 0);
+            var innerRadius = radius * (isHourMark ? 0.925 : 0.945);
+            dc.setPenWidth(isHourMark ? 2 : 1);
+            dc.drawLine(centerX - innerRadius * s, centerY - innerRadius * c,
+                centerX - radius * 0.99 * s, centerY - radius * 0.99 * c);
+        }
+
+        for (var hour = 1; hour <= 12; hour += 1) {
+            if (hour != DATE_HOUR) {
+                var angle = hour * (Math.PI / 6.0);
+                var x = centerX - radius * 0.77 * Math.sin(angle);
+                var y = centerY - radius * 0.77 * Math.cos(angle);
+                dc.drawText(x, y, mNumeralFont, hour.toString(), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
         }
     }

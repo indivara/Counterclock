@@ -4,84 +4,127 @@ import Toybox.Lang;
 import Toybox.WatchUi;
 
 const BACKGROUND_COLOR_STORAGE_KEY = "BackgroundColor";
-const DEFAULT_BACKGROUND_COLOR = 0x000000;
+const DEFAULT_BACKGROUND_COLOR = 0x333333;
 
-// Reads the on-device background color setting, falling back to black on
-// first run (before the picker below has ever been used to set one).
+// Reads the on-device background color setting, falling back to dark grey on
+// first run (before the slider below has ever been used to set one).
 function getBackgroundColor() as Number {
     var stored = Storage.getValue(BACKGROUND_COLOR_STORAGE_KEY);
     return (stored != null) ? stored as Number : DEFAULT_BACKGROUND_COLOR;
 }
 
-// One hex digit (0-F) per Picker column.
-class HexDigitFactory extends WatchUi.PickerFactory {
-    private const DIGITS as Array<String> = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"];
+// The one on-device setting: a slider for the background grey level, from
+// jet black (0) to 50% grey (50). The screen itself is filled with the
+// chosen color while adjusting, so it is a live preview. The value is saved
+// when the screen is left.
+class BackgroundSliderView extends WatchUi.View {
+    private const MAX_LEVEL as Number = 50;
+    private const BUTTON_STEP as Number = 2;
+
+    private var mLevel as Number = 0;
+    private var mBarLeft as Float = 0.0;
+    private var mBarWidth as Float = 1.0;
 
     function initialize() {
-        PickerFactory.initialize();
+        View.initialize();
+        var red = (getBackgroundColor() >> 16) & 0xFF;
+        setLevel((red * 100.0 / 255.0 + 0.5).toNumber());
     }
 
-    function getSize() as Number {
-        return DIGITS.size();
+    function onUpdate(dc as Dc) as Void {
+        var width = dc.getWidth();
+        var height = dc.getHeight();
+        var centerY = height / 2.0;
+
+        dc.setColor(Graphics.COLOR_TRANSPARENT, levelToColor(mLevel));
+        dc.clear();
+
+        mBarWidth = width * 0.6;
+        mBarLeft = (width - mBarWidth) / 2.0;
+        var barHeight = 12.0;
+        var barTop = centerY - barHeight / 2.0;
+
+        var steps = 50;
+        var stepWidth = mBarWidth / steps;
+        for (var i = 0; i < steps; i += 1) {
+            dc.setColor(levelToColor(MAX_LEVEL * i / (steps - 1.0)), Graphics.COLOR_TRANSPARENT);
+            dc.fillRectangle(mBarLeft + i * stepWidth, barTop, stepWidth + 1, barHeight);
+        }
+        dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
+        dc.setPenWidth(1);
+        dc.drawRectangle(mBarLeft, barTop, mBarWidth, barHeight);
+
+        var knobX = mBarLeft + mBarWidth * mLevel / MAX_LEVEL;
+        dc.setColor(0xFFFFFF, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(knobX, centerY, 11);
+
+        dc.drawText(width / 2.0, centerY - 70, Graphics.FONT_XTINY, "BACKGROUND", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(width / 2.0, centerY - 40, Graphics.FONT_SMALL, mLevel.toString() + "%", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    function getValue(index as Number) as Object or Null {
-        return index;
+    function onHide() as Void {
+        Storage.setValue(BACKGROUND_COLOR_STORAGE_KEY, levelToColor(mLevel));
     }
 
-    function getDrawable(index as Number, selected as Boolean) as WatchUi.Drawable? {
-        return new WatchUi.Text({
-            :text => DIGITS[index],
-            :color => selected ? Graphics.COLOR_WHITE : Graphics.COLOR_LT_GRAY,
-            :font => Graphics.FONT_NUMBER_MEDIUM,
-            :locX => WatchUi.LAYOUT_HALIGN_CENTER,
-            :locY => WatchUi.LAYOUT_VALIGN_CENTER
-        });
-    }
-}
-
-// The on-device settings entry point: a single #RGB (shorthand hex, each
-// digit doubled to make a full byte) picker for the background color.
-function buildBackgroundColorPicker() as WatchUi.Picker {
-    var current = getBackgroundColor();
-    var r = (current >> 16) & 0xFF;
-    var g = (current >> 8) & 0xFF;
-    var b = current & 0xFF;
-    var defaults = [ (r >> 4) & 0xF, (g >> 4) & 0xF, (b >> 4) & 0xF ];
-
-    var title = new WatchUi.Text({
-        :text => "BG #RGB",
-        :color => Graphics.COLOR_WHITE,
-        :font => Graphics.FONT_TINY,
-        :locX => WatchUi.LAYOUT_HALIGN_CENTER,
-        :locY => WatchUi.LAYOUT_VALIGN_BOTTOM
-    });
-
-    return new WatchUi.Picker({
-        :title => title,
-        :pattern => [ new HexDigitFactory(), new HexDigitFactory(), new HexDigitFactory() ],
-        :defaults => defaults
-    });
-}
-
-class BackgroundColorPickerDelegate extends WatchUi.PickerDelegate {
-    function initialize() {
-        PickerDelegate.initialize();
+    function adjust(delta as Number) as Void {
+        setLevel(mLevel + delta * BUTTON_STEP);
     }
 
-    function onAccept(values as Array) as Boolean {
-        var r = values[0] as Number;
-        var g = values[1] as Number;
-        var b = values[2] as Number;
-        var color = ((r * 16 + r) << 16) | ((g * 16 + g) << 8) | (b * 16 + b);
+    function setLevelFromX(x as Number) as Void {
+        setLevel(((x - mBarLeft) / mBarWidth * MAX_LEVEL + 0.5).toNumber());
+    }
 
-        Storage.setValue(BACKGROUND_COLOR_STORAGE_KEY, color);
+    private function setLevel(level as Number) as Void {
+        mLevel = (level < 0) ? 0 : ((level > MAX_LEVEL) ? MAX_LEVEL : level);
         WatchUi.requestUpdate();
+    }
+
+    // Level is a percentage of white, so 50 is 0x808080.
+    private function levelToColor(level as Numeric) as Number {
+        var grey = (level * 255.0 / 100.0 + 0.5).toNumber();
+        return (grey << 16) | (grey << 8) | grey;
+    }
+}
+
+class BackgroundSliderDelegate extends WatchUi.BehaviorDelegate {
+    private var mView as BackgroundSliderView;
+
+    function initialize(view as BackgroundSliderView) {
+        BehaviorDelegate.initialize();
+        mView = view;
+    }
+
+    function onPreviousPage() as Boolean {
+        mView.adjust(1);
+        return true;
+    }
+
+    function onNextPage() as Boolean {
+        mView.adjust(-1);
+        return true;
+    }
+
+    function onTap(clickEvent as WatchUi.ClickEvent) as Boolean {
+        mView.setLevelFromX(clickEvent.getCoordinates()[0]);
+        return true;
+    }
+
+    function onDrag(dragEvent as WatchUi.DragEvent) as Boolean {
+        mView.setLevelFromX(dragEvent.getCoordinates()[0]);
+        return true;
+    }
+
+    // A horizontal drag would otherwise end as a swipe and exit the screen.
+    function onSwipe(swipeEvent as WatchUi.SwipeEvent) as Boolean {
+        return true;
+    }
+
+    function onSelect() as Boolean {
         WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
         return true;
     }
 
-    function onCancel() as Boolean {
+    function onBack() as Boolean {
         WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
         return true;
     }

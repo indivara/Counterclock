@@ -8,14 +8,14 @@ Built as a personal watch face for the Forerunner 570 (42mm). It is sideloaded r
 
 ## Features
 
-- Mirrored dial: numbers run 12, 1, 2 ... counterclockwise, and all three hands sweep counterclockwise.
+- Mirrored dial, styled after a Bauhaus-style German watch face on a dark grey background with an amber date box: a minute track with longer, thicker five-minute marks, and Josefin Sans numerals for every hour except the date's. It is mirrored, so the numerals and all three hands run counterclockwise.
 - Hour and minute hands are shaded across their width so they look slightly rounded. The hour hand is wider than the minute hand, so it still shows from behind when they overlap.
 - Red second hand with a thick hub and a thin needle. It is hidden in low-power mode.
 - Soft drop shadows under all hands. Stacking order is hour, minute, second.
-- Date (weekday and day of month) in an inset panel, in the place where the 3 would be.
+- Day of the month in an inset panel on the left, at the hour-3 position.
 - Tiny unread-notification dot above the center, drawn only when there is a notification.
-- Tiny battery bar below the center. It turns red at 20% or below.
-- One on-device setting: background color, entered as a `#RGB` hex value.
+- Tiny battery gauge below the center: eight dots in a frame, each an eighth of the charge. The dots turn yellow at 25% or below, orange at 20% or below and red at 10% or below.
+- One on-device setting: a background slider from jet black to 50% grey.
 
 ## Requirements
 
@@ -44,7 +44,7 @@ Keep your developer key outside the repository.
 
 ## Settings
 
-The background color is set on the watch, not in Garmin Connect. Open the watch face's settings and enter the color one hex digit at a time; each digit is doubled, so `#F80` becomes `#FF8800`. The value is stored with `Application.Storage`. The default is black.
+The background is set on the watch, not in Garmin Connect. Open the watch face's settings and drag the slider (or use the up and down buttons; Enter or Back leaves the screen). The screen shows the chosen color as you adjust, and the value is saved when you leave, using `Application.Storage`. The default is dark grey (20%).
 
 Garmin Connect Mobile only shows `settings.xml` app settings for apps that are registered with the Connect IQ Store, so a sideloaded face can't use them.
 
@@ -56,8 +56,9 @@ monkey.jungle                Build configuration
 source/CounterclockApp.mc    App entry point, settings entry point
 source/CounterclockView.mc   All drawing: dial, date, hands, indicators
 source/CounterclockBackground.mc  Clears the screen to the background color
-source/CounterclockSettings.mc    Background color storage and hex picker
-resources/                   Strings, layout, launcher icon
+source/CounterclockSettings.mc    Background storage and settings slider
+resources/                   Strings, layout, launcher icon, fonts
+tools/make_bitmap_font.py    Generates the bitmap fonts from a TTF
 docs/AGENTS.md               Notes for future development
 ```
 
@@ -65,7 +66,9 @@ docs/AGENTS.md               Notes for future development
 
 Licensed under the [GNU General Public License v3.0](LICENSE).
 
+The bitmap fonts in `resources/fonts/` are derived from [Josefin Sans](https://github.com/ThomasJockin/JosefinSansFont-master), licensed under the SIL Open Font License 1.1 (`resources/fonts/OFL.txt`).
+
 ## Limitations
 
 - Watch faces can update at most once per second while awake (once a minute in low-power mode), so the second hand ticks rather than sweeps. This is a platform limit.
-- The built-in fonts have no bolder weight, so the date text is drawn twice, a pixel apart, to thicken it.
+- The numerals and date use bitmap fonts made from Josefin Sans, so they are fixed at one pixel size. `tools/make_bitmap_font.py` regenerates them.

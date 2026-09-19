@@ -21,10 +21,11 @@ class CounterclockApp extends Application.AppBase {
         return [ new CounterclockView() ];
     }
 
-    // The one on-device setting: background color, picked digit by digit as
-    // a #RGB hex shorthand and stored locally (see CounterclockSettings.mc).
+    // The one on-device setting: a background grey-level slider, stored
+    // locally (see CounterclockSettings.mc).
     function getSettingsView() as [Views] or [Views, InputDelegates] or Null {
-        return [ buildBackgroundColorPicker(), new BackgroundColorPickerDelegate() ];
+        var view = new BackgroundSliderView();
+        return [ view, new BackgroundSliderDelegate(view) ];
     }
 
 }
