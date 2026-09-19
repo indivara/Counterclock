@@ -4,6 +4,8 @@ An analog watch face for Garmin watches, written in Monkey C (Connect IQ), in wh
 
 Built as a personal watch face for the Forerunner 570 (42mm). It is sideloaded rather than published to the Connect IQ Store.
 
+![Counterclock watch face](docs/Screenshot.png)
+
 ## Features
 
 - Mirrored dial: numbers run 12, 1, 2 ... counterclockwise, and all three hands sweep counterclockwise.
