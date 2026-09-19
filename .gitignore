@@ -1,0 +1,45 @@
+# Monkey C / Connect IQ build output
+bin/
+deploy/
+gen/
+internal-mir/
+mir/
+*.prg
+*.iq
+*.prg.debug.xml
+*-settings.json
+*.mcgen
+*.mbc
+*.mir
+
+# Signing keys (never commit these)
+developer_key
+developer_key.*
+*.der
+*.pem
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.DocumentRevisions-V100
+.TemporaryItems
+Icon?
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
