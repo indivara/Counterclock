@@ -8,11 +8,11 @@ Built as a personal watch face for the Forerunner 570 (42mm). It is sideloaded r
 
 ## Features
 
-- Mirrored dial, styled after a Bauhaus-style German watch face on a dark grey background with a lime date box: a minute track with longer, thicker five-minute marks, and Josefin Sans numerals for every hour except the date's. It is mirrored, so the numerals and all three hands run counterclockwise.
+- Mirrored dial, styled after a Bauhaus-style German watch face on a dark grey background: a minute track with longer, thicker five-minute marks, and BhuTuka Expanded One numerals for every hour except the date's. It is mirrored, so the numerals and all three hands run counterclockwise.
 - Hour and minute hands are shaded across their width so they look slightly rounded. The hour hand is wider than the minute hand, so it still shows from behind when they overlap.
 - Orange second hand with a thick hub and a thin needle. It is hidden in low-power mode.
 - Soft drop shadows under all hands. Stacking order is hour, minute, second.
-- Day of the month in an inset panel on the left, at the hour-3 position.
+- Day of the month on the left, at the hour-3 position, in Zilla Slab Highlight: black digits in a lime inset panel with a shadow fading in from all four edges.
 - Unread-notification mark: the five-minute mark at 12 is drawn over in amber, a little thicker, when there is a notification. It sits outside the reach of the hands.
 - Battery gauge built into the minute track: up to five small outlined squares in the gaps between the 6 and 7 marks, one per fifth of the charge, hidden when empty. All lit squares share one color that changes with the charge: blue-grey above 30%, yellow from 30%, orange from 20% and red from 10%. At 3% or below the squares blink once a second while the watch is awake.
 - One on-device setting: a background slider from jet black to 50% grey.
@@ -66,9 +66,9 @@ docs/AGENTS.md               Notes for future development
 
 Licensed under the [GNU General Public License v3.0](LICENSE).
 
-The bitmap fonts in `resources/fonts/` are derived from [Josefin Sans](https://github.com/ThomasJockin/JosefinSansFont-master), licensed under the SIL Open Font License 1.1 (`resources/fonts/OFL.txt`).
+The bitmap fonts in `resources/fonts/` are derived from [BhuTuka Expanded One](https://github.com/erinmclaughlin/BhuTuka-Extended-One) (numerals) and [Zilla Slab Highlight](https://github.com/mozilla/zilla-slab) (date), both licensed under the SIL Open Font License 1.1 (`resources/fonts/OFL-BhuTukaExpandedOne.txt` and `resources/fonts/OFL-ZillaSlabHighlight.txt`).
 
 ## Limitations
 
 - Watch faces can update at most once per second while awake (once a minute in low-power mode), so the second hand ticks rather than sweeps. This is a platform limit.
-- The numerals and date use bitmap fonts made from Josefin Sans, so they are fixed at one pixel size. `tools/make_bitmap_font.py` regenerates them.
+- The numerals (BhuTuka Expanded One) and date (Zilla Slab Highlight) use bitmap fonts, so they are fixed at one pixel size. `tools/make_bitmap_font.py` regenerates them.

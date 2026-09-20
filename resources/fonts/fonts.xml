@@ -1,4 +1,4 @@
 <fonts xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
-    <font id="NumeralFont" filename="josefin_numerals.fnt" filter="0123456789" antialias="true" />
-    <font id="DateFont" filename="josefin_date.fnt" filter="0123456789" antialias="true" />
+    <font id="NumeralFont" filename="bhutuka_numerals.fnt" filter="0123456789" antialias="true" />
+    <font id="DateFont" filename="zilla_date.fnt" filter="0123456789" antialias="true" />
 </fonts>

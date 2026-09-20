@@ -9,10 +9,9 @@ import Toybox.WatchUi;
 class CounterclockView extends WatchUi.WatchFace {
 
     private const SHADOW_OFFSET as Float = 1.5;
-    private const DATE_BOX_FILL_COLOR as Number = 0xCDDC39;
-    private const DATE_TEXT_COLOR as Number = 0x000000;
-    private const HAND_COLOR as Number = 0xFFFFFF;
+    private const HAND_COLOR as Number = 0xEFEFEF;
     private const DIAL_COLOR as Number = 0xAAAAAA;
+    private const NUMERAL_COLOR as Number = 0xFFFFFF;
     private const SECOND_HAND_COLOR as Number = 0xFF9800;
     private const NOTIFICATION_COLOR as Number = 0xFFC107;
 
@@ -32,6 +31,17 @@ class CounterclockView extends WatchUi.WatchFace {
     // Every hour gets a numeral except this one, where the date window
     // sits. Because the dial is mirrored, hour 3 is on the left.
     private const DATE_HOUR as Number = 3;
+    private const DATE_PADDING_X as Number = 8;
+    private const DATE_PADDING_Y as Number = 5;
+    private const DATE_OUTER_RADIUS as Float = 0.86;
+    private const DATE_BOX_FILL_COLOR as Number = 0xCDDC39;
+    private const DATE_TEXT_COLOR as Number = 0x000000;
+
+    // Numerals sit at NUMERAL_RADIUS of the dial radius, moved inward if
+    // their far corner would reach past NUMERAL_MAX_REACH, so wide ones like
+    // 10 stay clear of the minute marks.
+    private const NUMERAL_RADIUS as Float = 0.77;
+    private const NUMERAL_MAX_REACH as Float = 0.89;
 
     private var mIsSleeping as Boolean = false;
     private var mNumeralFont as Graphics.FontType = Graphics.FONT_SMALL;
@@ -45,7 +55,8 @@ class CounterclockView extends WatchUi.WatchFace {
     function onLayout(dc as Dc) as Void {
         setLayout(Rez.Layouts.WatchFace(dc));
 
-        // Josefin Sans bitmap fonts, digits only (see tools/make_bitmap_font.py).
+        // BhuTuka Expanded One (numerals) and Zilla Slab Highlight (date)
+        // bitmap fonts, digits only (see tools/make_bitmap_font.py).
         mNumeralFont = WatchUi.loadResource(Rez.Fonts.NumeralFont) as Graphics.FontType;
         mDateFont = WatchUi.loadResource(Rez.Fonts.DateFont) as Graphics.FontType;
     }
@@ -73,7 +84,7 @@ class CounterclockView extends WatchUi.WatchFace {
         var centerY = height / 2.0;
         var clockRadius = (width < height ? width : height) / 2.0 - 10.0;
 
-        drawDial(dc, centerX, centerY, clockRadius, DIAL_COLOR);
+        drawDial(dc, centerX, centerY, clockRadius, DIAL_COLOR, NUMERAL_COLOR);
         drawDateWindow(dc, centerX, centerY, clockRadius);
         drawNotificationMark(dc, centerX, centerY, clockRadius);
         drawBatteryIndicator(dc, centerX, centerY, clockRadius, backgroundColor);
@@ -235,35 +246,35 @@ class CounterclockView extends WatchUi.WatchFace {
     }
 
     // Draw the day of the month in a small inset frame on the left side of
-    // the face, at the date's hour position (see DATE_HOUR). Uses a fixed
-    // light grey / black palette rather than the face colors. The frame is
-    // sized for two digits so it doesn't change size from day to day.
+    // the face, at the date's hour position (see DATE_HOUR). The frame is
+    // sized for two digits so it doesn't change size from day to day, and its
+    // outer edge sits well clear of the minute track and the perimeter; it
+    // extends inward from there. Zilla Slab Highlight has old-style figures
+    // (some digits hang below the baseline), so the text is nudged down a
+    // pixel to centre the common digits in the frame. All coordinates are
+    // whole pixels so nothing lands between pixels.
     private function drawDateWindow(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
         var dayOfMonth = Gregorian.info(Time.now(), Time.FORMAT_SHORT).day.toString();
 
         var widest = dc.getTextDimensions("00", mDateFont);
-        var padding = 6.0;
-        var boxWidth = widest[0] + padding * 2;
-        var boxHeight = widest[1] + padding * 2;
+        var width = widest[0] + 2 * DATE_PADDING_X;
+        var height = widest[1] + 2 * DATE_PADDING_Y;
 
-        // The outer edge sits well clear of the minute track and the
-        // perimeter; the box extends inward from it.
-        var left = centerX - clockRadius * 0.90;
-        var boxCenterX = left + boxWidth / 2.0;
-        var top = centerY - boxHeight / 2.0;
+        var left = (centerX - clockRadius * DATE_OUTER_RADIUS).toNumber();
+        var top = (centerY - height / 2.0).toNumber();
 
-        drawInsetFrame(dc, left, top, boxWidth, boxHeight);
+        drawInsetFrame(dc, left, top, width, height);
 
         dc.setColor(DATE_TEXT_COLOR, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(boxCenterX, centerY, mDateFont, dayOfMonth, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(left + width / 2, top + height / 2 + 1, mDateFont, dayOfMonth, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     // Draw a rectangular frame that looks pressed into the face: an inner
-    // shadow along the top and left edges that is darkest at the edge and
-    // fades into the fill over a few pixels (the recess casting shadow onto
-    // its own floor), plus a light rim along the bottom and right edges
+    // shadow all the way around that is darkest at the edge and fades into
+    // the fill over a few pixels (the recess casting shadow onto its own
+    // floor), plus a light rim just outside the bottom and right edges
     // (catching the light).
-    private function drawInsetFrame(dc as Dc, left as Float, top as Float, w as Float, h as Float) as Void {
+    private function drawInsetFrame(dc as Dc, left as Number, top as Number, w as Number, h as Number) as Void {
         var right = left + w;
         var bottom = top + h;
 
@@ -271,12 +282,14 @@ class CounterclockView extends WatchUi.WatchFace {
         dc.fillRectangle(left, top, w, h);
 
         var shadowDepth = 4;
-        var shadowColor = lerpColor(DATE_BOX_FILL_COLOR, 0x000000, 0.6);
+        var shadowColor = lerpColor(DATE_BOX_FILL_COLOR, 0x000000, 0.4);
         dc.setPenWidth(1);
         for (var i = 0; i < shadowDepth; i += 1) {
             dc.setColor(lerpColor(shadowColor, DATE_BOX_FILL_COLOR, i / (shadowDepth * 1.0)), Graphics.COLOR_TRANSPARENT);
-            dc.drawLine(left + i, top + i, right - i, top + i);
-            dc.drawLine(left + i, top + i, left + i, bottom - i);
+            dc.drawLine(left + i, top + i, right - 1 - i, top + i);
+            dc.drawLine(left + i, bottom - 1 - i, right - 1 - i, bottom - 1 - i);
+            dc.drawLine(left + i, top + i, left + i, bottom - 1 - i);
+            dc.drawLine(right - 1 - i, top + i, right - 1 - i, bottom - 1 - i);
         }
 
         dc.setColor(lerpColor(DATE_BOX_FILL_COLOR, 0xFFFFFF, 0.5), Graphics.COLOR_TRANSPARENT);
@@ -350,11 +363,11 @@ class CounterclockView extends WatchUi.WatchFace {
     }
 
     // Draw the dial: a minute track around the edge (the five-minute marks
-    // longer and thicker) and Josefin Sans numerals for every hour except
+    // longer and thicker) and BhuTuka Expanded One numerals for every hour except
     // DATE_HOUR. Everything is placed with the same mirrored transform as
     // the hands (x = cx - r*sin(angle)), so the numerals run counterclockwise
     // and each hand still points at the right one.
-    private function drawDial(dc as Dc, centerX as Float, centerY as Float, radius as Float, color as Number) as Void {
+    private function drawDial(dc as Dc, centerX as Float, centerY as Float, radius as Float, color as Number, numeralColor as Number) as Void {
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
         for (var m = 0; m < 60; m += 1) {
             var angle = m * (Math.PI / 30.0);
@@ -367,12 +380,27 @@ class CounterclockView extends WatchUi.WatchFace {
                 centerX - radius * 0.99 * s, centerY - radius * 0.99 * c);
         }
 
+        dc.setColor(numeralColor, Graphics.COLOR_TRANSPARENT);
         for (var hour = 1; hour <= 12; hour += 1) {
             if (hour != DATE_HOUR) {
                 var angle = hour * (Math.PI / 6.0);
-                var x = centerX - radius * 0.77 * Math.sin(angle);
-                var y = centerY - radius * 0.77 * Math.cos(angle);
-                dc.drawText(x, y, mNumeralFont, hour.toString(), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                var text = hour.toString();
+                var size = dc.getTextDimensions(text, mNumeralFont);
+
+                var numeralRadius = radius * NUMERAL_RADIUS;
+                var x = centerX - numeralRadius * Math.sin(angle);
+                var y = centerY - numeralRadius * Math.cos(angle);
+                for (var i = 0; i < 20; i += 1) {
+                    var reachX = (x - centerX).abs() + size[0] / 2.0;
+                    var reachY = (y - centerY).abs() + size[1] / 2.0;
+                    if (Math.sqrt(reachX * reachX + reachY * reachY) <= radius * NUMERAL_MAX_REACH) {
+                        break;
+                    }
+                    numeralRadius *= 0.99;
+                    x = centerX - numeralRadius * Math.sin(angle);
+                    y = centerY - numeralRadius * Math.cos(angle);
+                }
+                dc.drawText(x, y, mNumeralFont, text, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
         }
     }

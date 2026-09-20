@@ -7,13 +7,18 @@ Usage:
 
 Writes OUT_PREFIX.fnt and OUT_PREFIX_0.png. --size is the em size in pixels
 and --weight sets the wght axis of a variable font (ignored for static fonts).
-Requires Pillow.
+Glyphs are rendered --supersample times larger and averaged down, which
+gives smooth anti-aliased edges without the font's hinting snapping strokes
+to the pixel grid (small hinted text looks jagged). --invert is for
+"highlight" fonts whose glyphs are a solid block with the character cut out:
+it flips each glyph so only the character remains, and trims the glyph and
+the line box to it. Requires Pillow.
 """
 import argparse
 import math
 import os
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 def main():
@@ -23,27 +28,53 @@ def main():
     parser.add_argument("--size", type=int, required=True)
     parser.add_argument("--weight", type=int)
     parser.add_argument("--chars", default="0123456789")
+    parser.add_argument("--supersample", type=int, default=4)
+    parser.add_argument("--invert", action="store_true")
     args = parser.parse_args()
 
-    font = ImageFont.truetype(args.font, args.size)
+    ss = args.supersample
+    font = ImageFont.truetype(args.font, args.size * ss)
     if args.weight is not None:
         font.set_variation_by_axes([args.weight])
 
     # The line box is fitted tightly around the glyphs (top of the tallest to
     # bottom of the lowest) rather than using the font's ascent/descent, so
     # drawing with TEXT_JUSTIFY_VCENTER centers the digits themselves.
-    raw = []
+    # Glyph boxes are measured in supersampled pixels and snapped to
+    # multiples of ss so the baseline stays on the real pixel grid.
+    glyphs = []  # (char, image, x offset, top relative to baseline, advance)
     for ch in args.chars:
         left, top, right, bottom = font.getbbox(ch, anchor="ls")
-        raw.append((ch, math.floor(left), math.floor(top), math.ceil(right), math.ceil(bottom)))
-    box_top = min(r[2] for r in raw)
-    box_bottom = max(r[4] for r in raw)
+        x0, y0 = math.floor(left / ss) * ss, math.floor(top / ss) * ss
+        x1, y1 = math.ceil(right / ss) * ss, math.ceil(bottom / ss) * ss
+        big = Image.new("L", (max(x1 - x0, ss), max(y1 - y0, ss)), 0)
+        ImageDraw.Draw(big).text((-x0, -y0), ch, font=font, fill=255, anchor="ls")
+        image = big.resize((big.width // ss, big.height // ss), Image.BOX)
+        xoffset, ytop = x0 // ss, y0 // ss
+        if args.invert:
+            # Shrink the block by a pixel so its partly covered outer edge
+            # pixels don't turn into bright ink when inverted.
+            left, top, right, bottom = image.getbbox()
+            block = (left + 1, top + 1, right - 1, bottom - 1)
+            image = image.crop(block)
+            xoffset += block[0]
+            ytop += block[1]
+            image = ImageOps.invert(image)
+            # Faint edge pixels along the old block's border must not count as
+            # ink, so measure with a threshold and keep one pixel of margin.
+            left, top, right, bottom = image.point(lambda v: 255 if v > 100 else 0).getbbox()
+            ink = (max(left - 1, 0), max(top - 1, 0), min(right + 1, image.width), min(bottom + 1, image.height))
+            image = image.crop(ink)
+            xoffset += ink[0]
+            ytop += ink[1]
+        glyphs.append((ch, image, xoffset, ytop, round(font.getlength(ch) / ss)))
 
-    glyphs = []
-    for ch, x0, y0, x1, y1 in raw:
-        image = Image.new("L", (max(x1 - x0, 1), max(y1 - y0, 1)), 0)
-        ImageDraw.Draw(image).text((-x0, -y0), ch, font=font, fill=255, anchor="ls")
-        glyphs.append((ch, image, x0, y0 - box_top, round(font.getlength(ch))))
+    # The line box is fitted tightly around the glyphs (top of the tallest to
+    # bottom of the lowest) rather than using the font's ascent/descent, so
+    # drawing with TEXT_JUSTIFY_VCENTER centers the glyphs themselves.
+    box_top = min(g[3] for g in glyphs)
+    box_bottom = max(g[3] + g[1].height for g in glyphs)
+    glyphs = [(ch, image, xoffset, ytop - box_top, advance) for ch, image, xoffset, ytop, advance in glyphs]
 
     spacing = 1
     atlas_w = sum(g[1].width + spacing for g in glyphs) + spacing
