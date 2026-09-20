@@ -15,19 +15,19 @@ class CounterclockView extends WatchUi.WatchFace {
     private const DIAL_COLOR as Number = 0xAAAAAA;
     private const SECOND_HAND_COLOR as Number = 0xFF9800;
     private const NOTIFICATION_COLOR as Number = 0xFFC107;
-    private const BATTERY_CRITICAL_PERCENT as Float = 10.0;
-    private const BATTERY_LOW_PERCENT as Float = 20.0;
-    private const BATTERY_WARNING_PERCENT as Float = 25.0;
-    private const BATTERY_FRAME_COLOR as Number = 0x666666;
-    private const BATTERY_DOT_COLOR as Number = 0xAAAAAA;
-    private const BATTERY_DOT_BACKGROUND_COLOR as Number = 0x111111;
-    private const BATTERY_WARNING_COLOR as Number = 0xFFEB3B;
-    private const BATTERY_LOW_COLOR as Number = 0xFF7A00;
-    private const BATTERY_CRITICAL_COLOR as Number = 0xFF0000;
-    private const BATTERY_DOT_COUNT as Number = 8;
-    private const BATTERY_DOT_RADIUS as Float = 1.6;
-    private const BATTERY_DOT_PITCH as Float = 6.0;
-    private const BATTERY_FRAME_PADDING as Float = 3.0;
+
+    // Battery gauge: five outlined squares in the gaps of the minute track
+    // between the 6 and 7 marks (minutes 30 to 35). Each square stands for an
+    // equal fifth of the charge and is hidden when its fifth is empty, so the
+    // gauge grows from the 6 towards the 7 as the charge rises. Every lit
+    // square shares one color, chosen by charge: BATTERY_COLORS[i] applies
+    // above BATTERY_THRESHOLDS[i], and the last color below all of them. At
+    // or below BATTERY_FLASH_PERCENT the squares blink once a second.
+    private const BATTERY_COLORS as Array<Number> = [0x325A64, 0xF1A512, 0xDD4111, 0x8C0027];
+    private const BATTERY_THRESHOLDS as Array<Number> = [30, 20, 10];
+    private const BATTERY_FLASH_PERCENT as Float = 3.0;
+    private const BATTERY_SQUARE_COUNT as Number = 5;
+    private const BATTERY_FIRST_MINUTE as Number = 30;
 
     // Every hour gets a numeral except this one, where the date window
     // sits. Because the dial is mirrored, hour 3 is on the left.
@@ -76,7 +76,7 @@ class CounterclockView extends WatchUi.WatchFace {
         drawDial(dc, centerX, centerY, clockRadius, DIAL_COLOR);
         drawDateWindow(dc, centerX, centerY, clockRadius);
         drawNotificationMark(dc, centerX, centerY, clockRadius);
-        drawBatteryIndicator(dc, centerX, centerY, clockRadius);
+        drawBatteryIndicator(dc, centerX, centerY, clockRadius, backgroundColor);
 
         var clockTime = System.getClockTime();
         var hours = clockTime.hour % 12;
@@ -298,41 +298,55 @@ class CounterclockView extends WatchUi.WatchFace {
         }
     }
 
-    // Draw a tiny battery gauge below center: a row of dots, each an equal
-    // share of charge (rounded up), inside a frame with a small gap around
-    // them and a very dark fill showing between them. The dots are grey
-    // normally, yellow at BATTERY_WARNING_PERCENT or below, orange at
-    // BATTERY_LOW_PERCENT or below and red at BATTERY_CRITICAL_PERCENT or below.
-    private function drawBatteryIndicator(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
+    // Draw the battery gauge: up to five small outlined squares in the gaps
+    // between the minute marks from 6 to 7, not touching them. One square
+    // per fifth of the charge, rounded up, filling from the 6 side; the rest
+    // are not drawn at all. At very low charge they blink while the watch is
+    // awake (the face redraws once a second then); in low-power mode, which
+    // redraws only once a minute, they stay on so the warning is never lost.
+    private function drawBatteryIndicator(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float, backgroundColor as Number) as Void {
         var batteryPercent = System.getSystemStats().battery;
 
-        var dotsWidth = (BATTERY_DOT_COUNT - 1) * BATTERY_DOT_PITCH + 2 * BATTERY_DOT_RADIUS;
-        var frameWidth = dotsWidth + 2 * BATTERY_FRAME_PADDING;
-        var frameHeight = 2 * BATTERY_DOT_RADIUS + 2 * BATTERY_FRAME_PADDING;
-        var frameLeft = centerX - frameWidth / 2.0;
-        var frameTop = centerY + clockRadius * 0.40;
-
-        dc.setColor(BATTERY_DOT_BACKGROUND_COLOR, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(frameLeft, frameTop, frameWidth, frameHeight);
-        dc.setColor(BATTERY_FRAME_COLOR, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(1);
-        dc.drawRectangle(frameLeft, frameTop, frameWidth, frameHeight);
-
-        var dotColor = BATTERY_DOT_COLOR;
-        if (batteryPercent <= BATTERY_CRITICAL_PERCENT) {
-            dotColor = BATTERY_CRITICAL_COLOR;
-        } else if (batteryPercent <= BATTERY_LOW_PERCENT) {
-            dotColor = BATTERY_LOW_COLOR;
-        } else if (batteryPercent <= BATTERY_WARNING_PERCENT) {
-            dotColor = BATTERY_WARNING_COLOR;
+        if (batteryPercent <= BATTERY_FLASH_PERCENT && !mIsSleeping && System.getClockTime().sec % 2 == 1) {
+            return;
         }
 
-        var litDots = Math.ceil(batteryPercent / 100.0 * BATTERY_DOT_COUNT).toNumber();
-        dc.setColor(dotColor, Graphics.COLOR_TRANSPARENT);
-        for (var i = 0; i < litDots && i < BATTERY_DOT_COUNT; i += 1) {
-            dc.fillCircle(frameLeft + BATTERY_FRAME_PADDING + BATTERY_DOT_RADIUS + i * BATTERY_DOT_PITCH,
-                frameTop + frameHeight / 2.0, BATTERY_DOT_RADIUS);
+        var color = BATTERY_COLORS[BATTERY_COLORS.size() - 1];
+        for (var i = 0; i < BATTERY_THRESHOLDS.size(); i += 1) {
+            if (batteryPercent > BATTERY_THRESHOLDS[i]) {
+                color = BATTERY_COLORS[i];
+                break;
+            }
         }
+
+        var litSquares = Math.ceil(batteryPercent / 100.0 * BATTERY_SQUARE_COUNT).toNumber();
+        var squareRadius = clockRadius * 0.9675;
+        var halfSide = 3.5;
+        var outline = 1.6;
+
+        for (var i = 0; i < litSquares && i < BATTERY_SQUARE_COUNT; i += 1) {
+            var angle = (BATTERY_FIRST_MINUTE + i + 0.5) * (Math.PI / 30.0);
+            dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon(squareCorners(centerX, centerY, angle, squareRadius, halfSide));
+            dc.setColor(backgroundColor, Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon(squareCorners(centerX, centerY, angle, squareRadius, halfSide - outline));
+        }
+    }
+
+    // Corners of a square centered squareRadius from the center at the given
+    // (mirrored) angle, with its sides parallel and perpendicular to the
+    // radius.
+    private function squareCorners(centerX as Float, centerY as Float, angle as Float, squareRadius as Float, halfSide as Float) as Array<Graphics.Point2D> {
+        var s = Math.sin(angle);
+        var c = Math.cos(angle);
+        var x = centerX - squareRadius * s;
+        var y = centerY - squareRadius * c;
+        return [
+            [x - halfSide * (s + c), y - halfSide * (c - s)],
+            [x - halfSide * (s - c), y - halfSide * (c + s)],
+            [x + halfSide * (s + c), y + halfSide * (c - s)],
+            [x + halfSide * (s - c), y + halfSide * (c + s)]
+        ] as Array<Graphics.Point2D>;
     }
 
     // Draw the dial: a minute track around the edge (the five-minute marks

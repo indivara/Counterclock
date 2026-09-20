@@ -12,8 +12,8 @@ Notes for anyone (human or AI) continuing work on Counterclock, a Monkey C / Con
 
 ## Architecture
 
-- `CounterclockApp.mc`: `AppBase`. Returns `CounterclockView` as the initial view and the settings picker from `getSettingsView()`.
-- `CounterclockView.mc`: everything visual, in `onUpdate`. Draw order is z-order: background layout, dial, date window, notification mark, battery dots, hour hand, minute hand, second hand.
+- `CounterclockApp.mc`: `AppBase`. Returns `CounterclockView` as the initial view and the settings slider from `getSettingsView()`.
+- `CounterclockView.mc`: everything visual, in `onUpdate`. Draw order is z-order: background layout, dial, date window, notification mark, battery squares, hour hand, minute hand, second hand.
 - `CounterclockBackground.mc`: a `Drawable` used by `resources/layouts/layout.xml`. It only clears the screen using `getBackgroundColor()`.
 - `CounterclockSettings.mc`: `getBackgroundColor()` (reads `Application.Storage`, default dark grey `#333333`), and the slider view and delegate for the one setting (grey level 0-50%, touch drag or up/down buttons, saved in `onHide`).
 
@@ -22,6 +22,7 @@ Notes for anyone (human or AI) continuing work on Counterclock, a Monkey C / Con
 - **The dial is mirrored.** A point at angle `a` (0 = 12 o'clock, clockwise in ordinary maths) is drawn at `x = cx - r*sin(a)`, `y = cy - r*cos(a)`. The negated x is what makes everything run counterclockwise. Hands, numbers and any new element that follows the time must use the same transform, or the hands won't point at their numbers.
 - Because of the mirroring, hour 3 is on the literal left of the screen, not the right. The date window sits there (`DATE_HOUR`): `drawDial` skips that numeral, and `drawDateWindow` puts its outer edge at 0.90 of `clockRadius`.
 - Sizes are fractions of `clockRadius` (screen half-width minus 10px). Numerals sit at 0.77 of it, the minute track at 0.945-0.99 (five-minute marks from 0.925). Keep new elements proportional, not in fixed pixels.
+- The battery gauge lives in the minute track: `drawBatteryIndicator` draws one outlined square per fifth of the charge in the gaps of minutes 30-35, filling from the 6 side, and hides the rest. All lit squares use one color chosen from `BATTERY_COLORS` by `BATTERY_THRESHOLDS`; the count and the color change at different charge levels. At or below `BATTERY_FLASH_PERCENT` it blinks on odd seconds while awake (redraws are once a second then) and stays steady in low-power mode (`mIsSleeping`). Squares are an outer filled polygon with a smaller background-colored one on top, which gives a crisp anti-aliased outline. Unlit squares were tried as a faint outline and were too hard to tell apart from lit ones at this size.
 - Gradients are faked. `Dc` has no gradient or alpha, so the code interpolates RGB with `lerpColor`. Shadows fade toward the background color rather than using transparency.
 - Colors are constants at the top of `CounterclockView.mc`, except the background, which comes from storage.
 
@@ -34,6 +35,7 @@ Notes for anyone (human or AI) continuing work on Counterclock, a Monkey C / Con
 - **Update rate.** `onUpdate` runs at most once a second while awake and once a minute in low power. Timers with `requestUpdate()` are not allowed for watch faces, so sub-second animation is impossible. The second hand is hidden while `mIsSleeping`.
 - **Override return types.** Monkey C requires overrides to match the base signature (e.g. an override of `PickerFactory.getValue` must return `Object or Null`). Check the API docs when overriding.
 - **Fonts.** Numerals and date use digits-only bitmap fonts (`resources/fonts/`, declared in `fonts.xml`) generated from Josefin Sans (OFL) with `tools/make_bitmap_font.py` (needs Pillow and the variable TTF): numerals 48px weight 400, date 24px weight 600. The script fits each font's line box to the digits, so `TEXT_JUSTIFY_VCENTER` centers them exactly. Bitmap fonts are fixed-size; to change a size, rerun the script and update the `.fnt`/`.png`. The built-in `FONT_XTINY` has no bold weight, and `getVectorFont` only offers the device's own faces, so a different typeface needs a bitmap font.
+- **Testing states you can't reach.** On the real watch the battery and notification states are whatever the watch currently has (the battery only goes down), so the low-charge colors, the flashing and the notification mark are checked in the simulator. The flash only works while the watch is awake, because low-power mode redraws once a minute.
 - **Sideloading.** The watch uses MTP, so it doesn't appear in macOS Finder. Copy the `.prg` to `GARMIN/APPS/` from Windows or an MTP tool with Garmin Express closed.
 
 ## Build

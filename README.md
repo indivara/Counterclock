@@ -10,11 +10,11 @@ Built as a personal watch face for the Forerunner 570 (42mm). It is sideloaded r
 
 - Mirrored dial, styled after a Bauhaus-style German watch face on a dark grey background with a lime date box: a minute track with longer, thicker five-minute marks, and Josefin Sans numerals for every hour except the date's. It is mirrored, so the numerals and all three hands run counterclockwise.
 - Hour and minute hands are shaded across their width so they look slightly rounded. The hour hand is wider than the minute hand, so it still shows from behind when they overlap.
-- Red second hand with a thick hub and a thin needle. It is hidden in low-power mode.
+- Orange second hand with a thick hub and a thin needle. It is hidden in low-power mode.
 - Soft drop shadows under all hands. Stacking order is hour, minute, second.
 - Day of the month in an inset panel on the left, at the hour-3 position.
 - Unread-notification mark: the five-minute mark at 12 is drawn over in amber, a little thicker, when there is a notification. It sits outside the reach of the hands.
-- Tiny battery gauge below the center: eight dots in a frame, each an eighth of the charge. The dots turn yellow at 25% or below, orange at 20% or below and red at 10% or below.
+- Battery gauge built into the minute track: up to five small outlined squares in the gaps between the 6 and 7 marks, one per fifth of the charge, hidden when empty. All lit squares share one color that changes with the charge: blue-grey above 30%, yellow from 30%, orange from 20% and red from 10%. At 3% or below the squares blink once a second while the watch is awake.
 - One on-device setting: a background slider from jet black to 50% grey.
 
 ## Requirements
