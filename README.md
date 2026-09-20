@@ -10,7 +10,7 @@ Built as a personal watch face for the Forerunner 570 (42mm). It is sideloaded r
 
 - Mirrored dial, styled after a Bauhaus-style German watch face on a dark grey background: a minute track with longer, thicker five-minute marks, and BhuTuka Expanded One numerals for every hour except the date's. It is mirrored, so the numerals and all three hands run counterclockwise.
 - Hour and minute hands are shaded across their width so they look slightly rounded. The hour hand is wider than the minute hand, so it still shows from behind when they overlap.
-- Orange second hand with a thick hub and a thin needle. It is hidden in low-power mode.
+- Orange second hand with a thick hub and a thin needle, moving in small steps five times a second while the watch is awake and hidden in low-power mode.
 - Soft drop shadows under all hands. Stacking order is hour, minute, second.
 - Day of the month on the left, at the hour-3 position, in Zilla Slab Highlight: black digits in a lime inset panel with a shadow fading in from all four edges.
 - Unread-notification mark: the five-minute mark at 12 is drawn over in amber, a little thicker, when there is a notification. It sits outside the reach of the hands.
@@ -70,5 +70,5 @@ The bitmap fonts in `resources/fonts/` are derived from [BhuTuka Expanded One](h
 
 ## Limitations
 
-- Watch faces can update at most once per second while awake (once a minute in low-power mode), so the second hand ticks rather than sweeps. This is a platform limit.
+- While the watch is awake the second hand moves in small steps, redrawn by a timer five times a second (200 ms, deliberately a little steppy). In low-power mode the face redraws once a minute and the second hand is hidden, because the SDK forbids timers there.
 - The numerals (BhuTuka Expanded One) and date (Zilla Slab Highlight) use bitmap fonts, so they are fixed at one pixel size. `tools/make_bitmap_font.py` regenerates them.
