@@ -27,6 +27,9 @@ class CounterclockView extends WatchUi.WatchFace {
     private const BATTERY_THRESHOLDS as Array<Number> = [30, 20, 10];
     private const BATTERY_FLASH_PERCENT as Float = 3.0;
     private const BATTERY_SQUARE_COUNT as Number = 5;
+    private const TRACK_SQUARE_RADIUS as Float = 0.9675;
+    private const TRACK_SQUARE_HALF_SIDE as Float = 3.5;
+    private const TRACK_SQUARE_OUTLINE as Float = 1.6;
     private const BATTERY_FIRST_MINUTE as Number = 30;
 
     // Every hour gets a numeral except this one, where the date window
@@ -99,7 +102,7 @@ class CounterclockView extends WatchUi.WatchFace {
 
         drawDial(dc, centerX, centerY, clockRadius, DIAL_COLOR, NUMERAL_COLOR);
         drawDateWindow(dc, centerX, centerY, clockRadius);
-        drawNotificationMark(dc, centerX, centerY, clockRadius);
+        drawNotificationMark(dc, centerX, centerY, clockRadius, backgroundColor);
         drawBatteryIndicator(dc, centerX, centerY, clockRadius, backgroundColor);
 
         var clockTime = System.getClockTime();
@@ -327,17 +330,15 @@ class CounterclockView extends WatchUi.WatchFace {
         dc.drawLine(left, bottom, right, bottom);
     }
 
-    // When there is an unread notification, draw over the five-minute mark
-    // at 12 in the notification color, a little thicker than the mark under
-    // it -- nothing at all otherwise. Deliberately just a recolored mark
-    // rather than a count, to stay tiny and out of the way. The hands never
-    // reach that far out, so they never cover it.
-    private function drawNotificationMark(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float) as Void {
-        var notificationCount = System.getDeviceSettings().notificationCount;
-        if (notificationCount > 0) {
-            dc.setColor(NOTIFICATION_COLOR, Graphics.COLOR_TRANSPARENT);
-            dc.setPenWidth(3);
-            dc.drawLine(centerX, centerY - clockRadius * 0.925, centerX, centerY - clockRadius * 0.99);
+    // When there is an unread notification, draw a square identical to the
+    // battery gauge's in the notification color in the gap right before the
+    // 12 mark (between the 59 and 0 minute marks, on the right of the 12
+    // because the dial is mirrored) -- nothing at all otherwise.
+    // Deliberately just a marker rather than a count, to stay tiny and out of
+    // the way. The hands never reach that far out, so they never cover it.
+    private function drawNotificationMark(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float, backgroundColor as Number) as Void {
+        if (System.getDeviceSettings().notificationCount > 0) {
+            drawTrackSquare(dc, centerX, centerY, clockRadius, 59, NOTIFICATION_COLOR, backgroundColor);
         }
     }
 
@@ -363,17 +364,24 @@ class CounterclockView extends WatchUi.WatchFace {
         }
 
         var litSquares = Math.ceil(batteryPercent / 100.0 * BATTERY_SQUARE_COUNT).toNumber();
-        var squareRadius = clockRadius * 0.9675;
-        var halfSide = 3.5;
-        var outline = 1.6;
 
         for (var i = 0; i < litSquares && i < BATTERY_SQUARE_COUNT; i += 1) {
-            var angle = (BATTERY_FIRST_MINUTE + i + 0.5) * (Math.PI / 30.0);
-            dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-            dc.fillPolygon(squareCorners(centerX, centerY, angle, squareRadius, halfSide));
-            dc.setColor(backgroundColor, Graphics.COLOR_TRANSPARENT);
-            dc.fillPolygon(squareCorners(centerX, centerY, angle, squareRadius, halfSide - outline));
+            drawTrackSquare(dc, centerX, centerY, clockRadius, BATTERY_FIRST_MINUTE + i, color, backgroundColor);
         }
+    }
+
+    // Draw a small outlined square in the gap of the minute track that
+    // follows the given minute mark, not touching either mark. It is an outer
+    // filled polygon with a smaller background-colored one on top, which
+    // gives a crisp anti-aliased outline. Used by the battery gauge and the
+    // notification marker so the two are identical apart from color.
+    private function drawTrackSquare(dc as Dc, centerX as Float, centerY as Float, clockRadius as Float, minute as Number, color as Number, backgroundColor as Number) as Void {
+        var angle = (minute + 0.5) * (Math.PI / 30.0);
+        var squareRadius = clockRadius * TRACK_SQUARE_RADIUS;
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon(squareCorners(centerX, centerY, angle, squareRadius, TRACK_SQUARE_HALF_SIDE));
+        dc.setColor(backgroundColor, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon(squareCorners(centerX, centerY, angle, squareRadius, TRACK_SQUARE_HALF_SIDE - TRACK_SQUARE_OUTLINE));
     }
 
     // Corners of a square centered squareRadius from the center at the given

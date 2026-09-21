@@ -13,7 +13,7 @@ Built as a personal watch face for the Forerunner 570 (42mm). It is sideloaded r
 - Orange second hand with a thick hub and a thin needle, moving in small steps five times a second while the watch is awake and hidden in low-power mode.
 - Soft drop shadows under all hands. Stacking order is hour, minute, second.
 - Day of the month on the left, at the hour-3 position, in Zilla Slab Highlight: black digits in a lime inset panel with a shadow fading in from all four edges.
-- Unread-notification mark: the five-minute mark at 12 is drawn over in amber, a little thicker, when there is a notification. It sits outside the reach of the hands.
+- Unread-notification marker: a small amber outlined square, identical to the battery gauge's squares, in the gap to the right of the 12 mark (between the 59 and 0 minute marks). It appears only when there is a notification, and sits outside the reach of the hands.
 - Battery gauge built into the minute track: up to five small outlined squares in the gaps between the 6 and 7 marks, one per fifth of the charge, hidden when empty. All lit squares share one color that changes with the charge: blue-grey above 30%, yellow from 30%, orange from 20% and red from 10%. At 3% or below the squares blink once a second while the watch is awake.
 - One on-device setting: a background slider from jet black to 50% grey.
 
