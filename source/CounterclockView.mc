@@ -4,7 +4,6 @@ import Toybox.Math;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
-import Toybox.Timer;
 import Toybox.WatchUi;
 
 class CounterclockView extends WatchUi.WatchFace {
@@ -15,6 +14,12 @@ class CounterclockView extends WatchUi.WatchFace {
     private const NUMERAL_COLOR as Number = 0xFFFFFF;
     private const SECOND_HAND_COLOR as Number = 0xFF9800;
     private const NOTIFICATION_COLOR as Number = 0xFFC107;
+    private const SECOND_SWEEP_DURATION as Float = 0.35;
+
+    var secondSweepProgress as Numeric = 1000;
+    private var mLastSecond as Number = -1;
+    private var mSecondSweepStart as Float = 0.0;
+    private var mSecondSweepEnd as Float = 0.0;
 
     // Battery gauge: five outlined squares in the gaps of the minute track
     // between the 6 and 7 marks (minutes 30 to 35). Each square stands for an
@@ -47,14 +52,7 @@ class CounterclockView extends WatchUi.WatchFace {
     private const NUMERAL_RADIUS as Float = 0.77;
     private const NUMERAL_MAX_REACH as Float = 0.89;
 
-    // While the watch is awake (high-power mode) a timer redraws the face this
-    // often so the second hand sweeps; the SDK forbids timers in low-power mode.
-    private const SWEEP_INTERVAL_MS as Number = 200;
-
     private var mIsSleeping as Boolean = false;
-    private var mSweepTimer as Timer.Timer? = null;
-    private var mLastSecond as Number = -1;
-    private var mSecondStartMs as Number = 0;
     private var mNumeralFont as Graphics.FontType = Graphics.FONT_SMALL;
     private var mDateFont as Graphics.FontType = Graphics.FONT_XTINY;
 
@@ -76,11 +74,8 @@ class CounterclockView extends WatchUi.WatchFace {
     // the state of this View and prepare it to be shown. This includes
     // loading resources into memory.
     function onShow() as Void {
-        if (System has :getDisplayMode && System.getDisplayMode() == System.DISPLAY_MODE_LOW_POWER) {
-            mIsSleeping = true;
-        } else {
-            startSweep();
-        }
+        mIsSleeping = System has :getDisplayMode && System.getDisplayMode() == System.DISPLAY_MODE_LOW_POWER;
+        mLastSecond = -1;
     }
 
     // Update the view
@@ -110,25 +105,8 @@ class CounterclockView extends WatchUi.WatchFace {
         var minutes = clockTime.min;
         var seconds = clockTime.sec;
 
-        // Fraction of the current second that has elapsed, for the sweep. The
-        // clock only has whole seconds, so it is measured from when the
-        // second was first seen to change; without the timer, redraws land
-        // on the second and the hand simply ticks.
-        var secondFraction = 0.0;
-        if (!mIsSleeping) {
-            var nowMs = System.getTimer();
-            if (seconds != mLastSecond) {
-                mLastSecond = seconds;
-                mSecondStartMs = nowMs;
-            }
-            secondFraction = (nowMs - mSecondStartMs) / 1000.0;
-            if (secondFraction > 1.0) {
-                secondFraction = 1.0;
-            }
-        }
-
         var hourAngle = ((hours * 60 + minutes) / (12 * 60.0)) * 2 * Math.PI;
-        var minuteAngle = ((minutes * 60 + seconds + secondFraction) / (60 * 60.0)) * 2 * Math.PI;
+        var minuteAngle = ((minutes * 60 + seconds) / (60 * 60.0)) * 2 * Math.PI;
         var tailLength = clockRadius * 0.15;
 
         // Draw order is also z-order: hour hand on the bottom, then minute,
@@ -139,9 +117,34 @@ class CounterclockView extends WatchUi.WatchFace {
         drawHand(dc, centerX, centerY, minuteAngle, clockRadius * 0.75, tailLength, 4, handColor, backgroundColor);
 
         if (!mIsSleeping) {
-            var secondAngle = ((seconds + secondFraction) / 60.0) * 2 * Math.PI;
+            var secondAngle = getSecondHandAngle(seconds);
             drawSecondHand(dc, centerX, centerY, secondAngle, clockRadius * 0.85, tailLength, 6, 2, SECOND_HAND_COLOR, backgroundColor);
         }
+    }
+
+    private function getSecondHandAngle(seconds as Number) as Float {
+        var targetAngle = (seconds / 60.0) * 2 * Math.PI;
+        if (seconds != mLastSecond) {
+            if (mLastSecond >= 0 && seconds == (mLastSecond + 1) % 60) {
+                WatchUi.cancelAllAnimations();
+                mSecondSweepStart = ((seconds + 59) % 60 / 60.0) * 2 * Math.PI;
+                mSecondSweepEnd = mSecondSweepStart + 2 * Math.PI / 60.0;
+                secondSweepProgress = 0;
+                mLastSecond = seconds;
+                WatchUi.animate(self, :secondSweepProgress, WatchUi.ANIM_TYPE_LINEAR,
+                    0, 1000, SECOND_SWEEP_DURATION, null);
+            } else {
+                WatchUi.cancelAllAnimations();
+                mSecondSweepStart = targetAngle;
+                mSecondSweepEnd = targetAngle;
+                secondSweepProgress = 1000;
+                mLastSecond = seconds;
+            }
+        }
+
+        var remaining = 1.0 - secondSweepProgress.toFloat() / 1000.0;
+        var easedProgress = 1.0 - remaining * remaining * remaining;
+        return mSecondSweepStart + (mSecondSweepEnd - mSecondSweepStart) * easedProgress;
     }
 
     // Draw a single hand as a line running from a short tail past the
@@ -447,41 +450,21 @@ class CounterclockView extends WatchUi.WatchFace {
     // state of this View here. This includes freeing resources from
     // memory.
     function onHide() as Void {
-        stopSweep();
+        WatchUi.cancelAllAnimations();
+        mLastSecond = -1;
     }
 
-    // The user has just looked at their watch: back to once-per-second
-    // updates, so the sweep timer may start.
+    // The user has just looked at their watch: updates are once a second.
     function onExitSleep() as Void {
         mIsSleeping = false;
-        startSweep();
+        mLastSecond = -1;
     }
 
-    // Timers must be stopped before low-power mode, where starting one
-    // crashes the app; updates drop to once a minute.
+    // Low-power mode: updates drop to once a minute.
     function onEnterSleep() as Void {
         mIsSleeping = true;
-        stopSweep();
-    }
-
-    private function startSweep() as Void {
-        if (mSweepTimer == null) {
-            var timer = new Timer.Timer();
-            timer.start(method(:onSweepTick), SWEEP_INTERVAL_MS, true);
-            mSweepTimer = timer;
-        }
-    }
-
-    private function stopSweep() as Void {
-        var timer = mSweepTimer;
-        if (timer != null) {
-            timer.stop();
-            mSweepTimer = null;
-        }
-    }
-
-    function onSweepTick() as Void {
-        WatchUi.requestUpdate();
+        WatchUi.cancelAllAnimations();
+        mLastSecond = -1;
     }
 
 }
