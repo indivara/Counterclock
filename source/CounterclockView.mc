@@ -14,12 +14,6 @@ class CounterclockView extends WatchUi.WatchFace {
     private const NUMERAL_COLOR as Number = 0xFFFFFF;
     private const SECOND_HAND_COLOR as Number = 0xFF9800;
     private const NOTIFICATION_COLOR as Number = 0xFFC107;
-    private const SECOND_SWEEP_DURATION as Float = 0.35;
-
-    var secondSweepProgress as Numeric = 1000;
-    private var mLastSecond as Number = -1;
-    private var mSecondSweepStart as Float = 0.0;
-    private var mSecondSweepEnd as Float = 0.0;
 
     // Battery gauge: five outlined squares in the gaps of the minute track
     // between the 6 and 7 marks (minutes 30 to 35). Each square stands for an
@@ -75,7 +69,6 @@ class CounterclockView extends WatchUi.WatchFace {
     // loading resources into memory.
     function onShow() as Void {
         mIsSleeping = System has :getDisplayMode && System.getDisplayMode() == System.DISPLAY_MODE_LOW_POWER;
-        mLastSecond = -1;
     }
 
     // Update the view
@@ -117,34 +110,9 @@ class CounterclockView extends WatchUi.WatchFace {
         drawHand(dc, centerX, centerY, minuteAngle, clockRadius * 0.75, tailLength, 4, handColor, backgroundColor);
 
         if (!mIsSleeping) {
-            var secondAngle = getSecondHandAngle(seconds);
+            var secondAngle = (seconds / 60.0) * 2 * Math.PI;
             drawSecondHand(dc, centerX, centerY, secondAngle, clockRadius * 0.85, tailLength, 6, 2, SECOND_HAND_COLOR, backgroundColor);
         }
-    }
-
-    private function getSecondHandAngle(seconds as Number) as Float {
-        var targetAngle = (seconds / 60.0) * 2 * Math.PI;
-        if (seconds != mLastSecond) {
-            if (mLastSecond >= 0 && seconds == (mLastSecond + 1) % 60) {
-                WatchUi.cancelAllAnimations();
-                mSecondSweepStart = ((seconds + 59) % 60 / 60.0) * 2 * Math.PI;
-                mSecondSweepEnd = mSecondSweepStart + 2 * Math.PI / 60.0;
-                secondSweepProgress = 0;
-                mLastSecond = seconds;
-                WatchUi.animate(self, :secondSweepProgress, WatchUi.ANIM_TYPE_LINEAR,
-                    0, 1000, SECOND_SWEEP_DURATION, null);
-            } else {
-                WatchUi.cancelAllAnimations();
-                mSecondSweepStart = targetAngle;
-                mSecondSweepEnd = targetAngle;
-                secondSweepProgress = 1000;
-                mLastSecond = seconds;
-            }
-        }
-
-        var remaining = 1.0 - secondSweepProgress.toFloat() / 1000.0;
-        var easedProgress = 1.0 - remaining * remaining * remaining;
-        return mSecondSweepStart + (mSecondSweepEnd - mSecondSweepStart) * easedProgress;
     }
 
     // Draw a single hand as a line running from a short tail past the
@@ -451,21 +419,16 @@ class CounterclockView extends WatchUi.WatchFace {
     // state of this View here. This includes freeing resources from
     // memory.
     function onHide() as Void {
-        WatchUi.cancelAllAnimations();
-        mLastSecond = -1;
     }
 
     // The user has just looked at their watch: updates are once a second.
     function onExitSleep() as Void {
         mIsSleeping = false;
-        mLastSecond = -1;
     }
 
     // Low-power mode: updates drop to once a minute.
     function onEnterSleep() as Void {
         mIsSleeping = true;
-        WatchUi.cancelAllAnimations();
-        mLastSecond = -1;
     }
 
 }

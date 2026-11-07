@@ -10,7 +10,7 @@ Built as a personal watch face for the Forerunner 570 (42mm). It is sideloaded r
 
 - Mirrored dial, styled after a Bauhaus-style German watch face on a dark grey background: a minute track with longer, thicker five-minute marks, and BhuTuka Expanded One numerals for every hour except the date's. It is mirrored, so the numerals and all three hands run counterclockwise.
 - Hour and minute hands are shaded across their width so they look slightly rounded. The hour hand is wider than the minute hand, so it still shows from behind when they overlap.
-- Orange second hand with a thick hub and a thin needle. While awake, each second advances with a 350 ms decelerating sweep; the hand is hidden in low-power mode.
+- Orange second hand with a thick hub and a thin needle, ticking once per second while awake and hidden in low-power mode.
 - Soft drop shadows under all hands. Stacking order is hour, minute, second.
 - Day of the month on the left, at the hour-3 position, in Zilla Slab Highlight: black digits in a lime inset panel with a shadow fading in from all four edges.
 - Unread-notification marker: a small amber outlined square, identical to the battery gauge's squares, in the gap to the right of the 12 mark (between the 59 and 0 minute marks). It appears only when there is a notification, and sits outside the reach of the hands.
@@ -70,5 +70,5 @@ The bitmap fonts in `resources/fonts/` are derived from [BhuTuka Expanded One](h
 
 ## Limitations
 
-- The second-hand sweep uses native animation only while awake. Its extra full-face redraws use more power than ticking; smoothness and battery impact need checking on the watch. In low-power mode the face redraws once a minute and the second hand is hidden.
+- The second hand ticks once per second while awake. A 350 ms decelerating sweep was tried and removed: it made no noticeable difference on the watch. In low-power mode the face redraws once a minute and the second hand is hidden.
 - The numerals (BhuTuka Expanded One) and date (Zilla Slab Highlight) use bitmap fonts, so they are fixed at one pixel size. `tools/make_bitmap_font.py` regenerates them.

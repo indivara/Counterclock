@@ -34,8 +34,7 @@ Counterclock: Monkey C / Connect IQ watch face. Read `README.md` for features. K
 
 - Normal updates: 1s awake, 1min asleep. Starting `Timer.start` or `WatchUi.animate` asleep crashes the face.
 - Don't restore the old 200ms timer sweep: timer/clock boundary drift made motion uneven.
-- Current sweep: 350ms native linear animation of public `secondSweepProgress` (0-1000); `getSecondHandAngle` applies cubic ease-out. `mLastSecond` prevents restart on animation frames.
-- Unwrap 59-to-0 angle; snap on first display, wake or missed seconds. Cancel on sleep/hide; hide second hand asleep. Smoothness still needs simulator/watch validation.
+- Removed the 350ms native cubic ease-out sweep: owner saw no noticeable difference on the watch. Keep second-hand ticks from `System.getClockTime().sec`; hide asleep.
 - Owner considers normal Garmin animation battery impact negligible. Prioritize smoothness/correctness/power-state safety; flag drain only with evidence.
 
 ## Gotchas
