@@ -40,7 +40,7 @@ class CounterclockView extends WatchUi.WatchFace {
     // Every hour gets a numeral except this one, where the date window
     // sits. Because the dial is mirrored, hour 3 is on the left.
     private const DATE_HOUR as Number = 3;
-    private const DATE_PADDING_X as Number = 8;
+    private const DATE_PADDING_X as Number = 6;
     private const DATE_PADDING_Y as Number = 5;
     private const DATE_OUTER_RADIUS as Float = 0.86;
     private const DATE_BOX_FILL_COLOR as Number = 0xCDDC39;
@@ -295,14 +295,15 @@ class CounterclockView extends WatchUi.WatchFace {
         var widest = dc.getTextDimensions("00", mDateFont);
         var width = widest[0] + 2 * DATE_PADDING_X;
         var height = widest[1] + 2 * DATE_PADDING_Y;
+        var side = width > height ? width : height;
 
         var left = (centerX - clockRadius * DATE_OUTER_RADIUS).toNumber();
-        var top = (centerY - height / 2.0).toNumber();
+        var top = (centerY - side / 2.0).toNumber();
 
-        drawInsetFrame(dc, left, top, width, height);
+        drawInsetFrame(dc, left, top, side, side);
 
         dc.setColor(DATE_TEXT_COLOR, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(left + width / 2, top + height / 2 + 1, mDateFont, dayOfMonth, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(left + side / 2, top + side / 2 + 1, mDateFont, dayOfMonth, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     // Draw a rectangular frame that looks pressed into the face: an inner
